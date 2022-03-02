@@ -1,4 +1,6 @@
 import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
+import matplotlib.colors as mcol
 from datetime import datetime, date, timedelta
 import networkx as nx
 import pandas as pd
@@ -65,23 +67,77 @@ class GraphProvider():
 
         return G
 
+    def calc_metric(self, func, dates, cryptos, data_pro, graph_pro):
+        degree_centrality = []
+        for d in range(len(dates) - 1):
+            start_int = dates[d]
+            end_int = dates[d + 1]
+            cryptos_int = data_pro.get_data_for_dates(cryptos, start_int, end_int)
+            edges, nodes = graph_pro.calc_edges(cryptos_int)
+            graph = graph_pro.calc_graph(edges, nodes)
+            degree_centrality.append(func(graph))
+        degree_centrality_market = [sum(d.values()) / len(d) for d in degree_centrality]
+        return degree_centrality, degree_centrality_market
 
-data_pro = DataProvider()
-graph_pro = GraphProvider()
-start_date = date(2019, 1, 1)
-end_date = date(2021, 12, 30)
-dates = data_pro.get_dates(start_date, end_date, 10)
-cryptos = data_pro.get_data(start_date, end_date)
 
-degree_centrality = []
+class PlotProvider():
+    def plot_metric(self, interes_list, dates, degree_metric, degree_metric_market, xlable, ylable, title):
+        fig, ax = plt.subplots(figsize=(8, 4), dpi=300)
+        for coin, coin_color in interes_list.items():
+            plt.plot(dates[:-1], [d.get(coin) for d in degree_metric], color=coin_color, linewidth=1.0,
+                     linestyle='--',
+                     label=coin)
+        plt.plot(dates[:-1], degree_metric_market, color='k', linewidth=2.0, label='Market')
+        myFmt = mdates.DateFormatter('%b %y')
+        ax.xaxis.set_major_formatter(myFmt)
+        plt.xticks(rotation=45)
+        plt.legend(ncol=len(interes_list) + 1)
+        plt.xlabel(xlable)
+        plt.ylabel(ylable)
+        plt.title(title, fontsize=12, y=1.03)
+        plt.tight_layout()
+        plt.show()
 
-for d in range(len(dates) - 1):
-    start_int = dates[d]
-    end_int = dates[d + 1]
-    cryptos_int = data_pro.get_data_for_dates(cryptos, start_int, end_int)
-    edges, nodes = graph_pro.calc_edges(cryptos_int)
-    graph = graph_pro.calc_graph(edges, nodes)
-    degree_centrality.append(nx.degree_centrality(graph))
+    def plot_network(self, cryptos, data_pro, degree_metric, graph_pro, start_date, end_date, title):
+        cryptos_int = data_pro.get_data_for_dates(cryptos, start_date, end_date)
+        edges, nodes = graph_pro.calc_edges(cryptos_int)
+        graph = graph_pro.calc_graph(edges, nodes)
+        fig, ax = plt.subplots(figsize=(8, 8), dpi=300)
+        colors = [degree_metric[0][node] / max(degree_metric[0].values()) for node in graph.nodes()]
+        sizes = [150 * i for i in colors]
+        pos = nx.spring_layout(graph, k=2.5)
+        cm1 = mcol.LinearSegmentedColormap.from_list("MyCmapName", ["blue", "green", "y", "orange"])
+        sm = plt.cm.ScalarMappable(cmap=cm1)
+        nx.draw_networkx_nodes(graph, pos, node_color=cm1(colors), node_size=sizes)
+        nx.draw_networkx_edges(graph, pos, edgelist=edges, edge_color='k', width=0.25)
+        plt.title(title, fontsize=18, y=1.03)
+        fig.colorbar(sm, ax=None, orientation='vertical', shrink=0.75)
+        plt.tight_layout()
+        plt.show()
 
-plt.plot(dates[:-1], [d.get('Bitcoin') for d in degree_centrality])
-plt.show()
+def run():
+    data_pro = DataProvider()
+    graph_pro = GraphProvider()
+    plot_pro = PlotProvider()
+    start_date = date(2019, 1, 1)
+    end_date = date(2021, 8, 30)
+    dates = data_pro.get_dates(start_date, end_date, 10)
+    cryptos = data_pro.get_data(start_date, end_date)
+    interes_list = {'Bitcoin': 'b', 'Ethereum': 'r', 'XPR': 'g', 'Cardano': 'orange'}
+
+    degree_centrality, degree_centrality_market = graph_pro.calc_metric(
+        nx.degree_centrality, dates, cryptos, data_pro, graph_pro)
+    plot_pro.plot_metric(interes_list, dates, degree_centrality, degree_centrality_market,
+                         xlable="Date", ylable="Degree Centrality", title="Degree Centrality")
+    betweenness_centrality, betweenness_centrality_market = graph_pro.calc_metric(
+        nx.betweenness_centrality, dates, cryptos, data_pro, graph_pro)
+    plot_pro.plot_metric(interes_list, dates, betweenness_centrality, betweenness_centrality_market,
+                         xlable="Date", ylable="Betweenness Centrality", title="Betweenness Centrality")
+
+    plot_pro.plot_network(cryptos, data_pro, degree_centrality, graph_pro,
+                          start_date=date(2020, 1, 1), end_date=date(2020, 1, 10), title='Degree centrality')
+    plot_pro.plot_network(cryptos, data_pro, betweenness_centrality, graph_pro,
+                          start_date=date(2020, 1, 1), end_date=date(2020, 1, 10), title='Betweenness centrality')
+
+
+run()
