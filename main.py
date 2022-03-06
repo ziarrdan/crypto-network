@@ -1,15 +1,29 @@
+from datetime import datetime, timedelta, date
+import community as community_louvain
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 import matplotlib.colors as mcol
 import matplotlib.cm as cm
-from datetime import datetime, date, timedelta
 from scipy import stats
+import collections
+import community
 import networkx as nx
 import pandas as pd
 import numpy as np
 import os
-import collections
-import community as community_louvain
+
+
+class Graph:
+    def __init__(self, graph, start, end):
+        self.graph = graph
+        self.start = start
+        self.end = end
+
+    def get_graph(self):
+        return self.graph
+
+    def get_dates(self):
+        return self.start, self.end
 
 
 class DataProvider():
@@ -42,15 +56,15 @@ class DataProvider():
         list_dates = [start]
 
         while current + timedelta(days=increment) < end:
-            list_dates.append(current + timedelta(days=10))
+            list_dates.append(current + timedelta(days=increment))
             current = current + timedelta(days=increment)
 
         return list_dates
 
 
 class GraphProvider():
-    def calc_edges(self, cryptos, cutoff_corr=0.5):
-        cryptos_daily_returns = np.log(cryptos) - np.log(cryptos.shift(1))
+    def calc_edges(self, cryptos, cutoff_corr=0.7):
+        cryptos_daily_returns = (np.log(cryptos) - np.log(cryptos.shift(1))) / np.std(cryptos)
         cryptos_correlations = cryptos_daily_returns.corr(method='pearson')
         cryptos_correlations = cryptos_correlations.mask(cryptos_correlations < cutoff_corr, 0)
         nodes = set(cryptos_correlations.columns)
@@ -72,27 +86,27 @@ class GraphProvider():
 
         return G
 
-    def calc_graphs(self, dates, cryptos, data_pro, graph_pro):
+    def calc_graphs(self, dates, cryptos, data_pro, graph_pro, window):
         graphs = []
-        for d in range(len(dates) - 1):
+        for d in range(len(dates) - window):
             start_int = dates[d]
-            end_int = dates[d + 1]
+            end_int = dates[d + window]
             cryptos_int = data_pro.get_data_for_dates(cryptos, start_int, end_int)
             edges, nodes = graph_pro.calc_edges(cryptos_int)
-            graph = graph_pro.calc_graph(edges, nodes)
+            graph = Graph(graph_pro.calc_graph(edges, nodes), start_int, end_int)
             graphs.append(graph)
 
         return graphs
 
 
 class PlotProvider():
-    def plot_metric(self, interes_list, dates, degree_metric, degree_metric_market, xlable, ylable, title):
+    def plot_metric(self, interes_list, dates, degree_metric, degree_metric_market, xlable, ylable, title, window):
         fig, ax = plt.subplots(figsize=(8, 4), dpi=300)
         for coin, coin_color in interes_list.items():
-            plt.plot(dates[:-1], [d.get(coin) for d in degree_metric], color=coin_color, linewidth=1.0,
+            plt.plot(dates[:-window], [d.get(coin) for d in degree_metric], color=coin_color, linewidth=1.0,
                      linestyle='--',
                      label=coin)
-        plt.plot(dates[:-1], degree_metric_market, color='k', linewidth=2.0, label='Market')
+        plt.plot(dates[:-window], degree_metric_market, color='k', linewidth=2.0, label='Market')
         myFmt = mdates.DateFormatter('%b %y')
         ax.xaxis.set_major_formatter(myFmt)
         plt.xticks(rotation=45)
@@ -103,17 +117,16 @@ class PlotProvider():
         plt.tight_layout()
         plt.show()
 
-    def plot_network(self, metric_func, graph, title):
+    def plot_network(self, metric_func, graph, plot_network, title):
         degree_metric = metric_func(graph)
-        edges = graph.edges()
         fig, ax = plt.subplots(figsize=(8, 8), dpi=300)
+        edges = graph.edges()
         colors = [degree_metric[node] / max(degree_metric.values()) for node in graph.nodes()]
-        sizes = [150 * i for i in colors]
-        pos = nx.spring_layout(graph, k=2.5)
-        cm1 = mcol.LinearSegmentedColormap.from_list("MyCmapName", ["blue", "green", "y", "orange"])
+        sizes = [200 * i if i > 0 else 10 for i in colors]
+        cm1 = mcol.LinearSegmentedColormap.from_list("MyCmapName", ["navy", "green", "yellow", "red"])
         sm = plt.cm.ScalarMappable(cmap=cm1)
-        nx.draw_networkx_nodes(graph, pos, node_color=cm1(colors), node_size=sizes)
-        nx.draw_networkx_edges(graph, pos, edgelist=edges, edge_color='k', width=0.05)
+        nx.draw_networkx_nodes(nx.MultiDiGraph(graph), pos=plot_network, node_color=cm1(colors), node_size=sizes)
+        nx.draw_networkx_edges(nx.MultiDiGraph(graph), pos=plot_network, edgelist=edges, edge_color='k', width=0.5, connectionstyle="arc3,rad=0.25", arrowstyle='-', alpha=0.25)
         plt.title(title, fontsize=18, y=1.03)
         fig.colorbar(sm, ax=None, orientation='vertical', shrink=0.75)
         plt.tight_layout()
@@ -240,20 +253,86 @@ class PlotProvider():
         plt.show()
 
 
-    def plot_louvain(self, g, with_labels=False):
-        commun_louvain = community_louvain.best_partition(g)
-        pos = nx.spring_layout(g, k=1.5)
+    def plot_louvain(self, g, plot_network, with_labels=True):
+        t = g
+        commun_louvain = community_louvain.best_partition(t)
+        pos = nx.kamada_kawai_layout(t)
+        cm1 = mcol.LinearSegmentedColormap.from_list("MyCmapName", ["navy", "green", "yellow", "red"])
         cmap = cm.get_cmap('tab10', max(commun_louvain.values()) + 1)
+        sm = plt.cm.ScalarMappable(cmap=cm1)
         color_values = np.array(list(commun_louvain.values())) / max(commun_louvain.values())
-        nx.draw_networkx_nodes(g, pos, commun_louvain.keys(), node_size=100,
-                               cmap=cmap, node_color=list(color_values))
-        nx.draw_networkx_edges(g, pos, alpha=0.5, width=0.05)
+        fig, ax = plt.subplots(figsize=(8, 8), dpi=300)
+        nx.draw_networkx_nodes(nx.MultiDiGraph(t), plot_network, commun_louvain.keys(), node_size=200,
+                               cmap=plt.get_cmap('jet'), node_color=list(color_values), alpha=0.5)
+        nx.draw_networkx_edges(nx.MultiDiGraph(t), plot_network, alpha=0.05, width=0.5, connectionstyle="arc3,rad=0.25", arrowstyle='-')
+        label_options = {"ec": "k", "fc": "white", "alpha": 0.25}
         if with_labels:
             labels = {}
-            for node in g.nodes():
+            for node in t.nodes():
                 labels[node] = node
-            nx.draw_networkx_labels(g, pos, labels, font_size=9, font_color='w')
+            nx.draw_networkx_labels(t, pos, labels, font_size=9, font_color='k')
         plt.title("Community Detection on using Louvain method")
+        fig.colorbar(sm, ax=None, orientation='vertical', shrink=0.75)
+        plt.tight_layout()
+        plt.show()
+
+
+    def plot_graph_chars(self, g):
+        degree = list(dict(g.degree()).values())
+        degree_dist = {}
+        for key in degree:
+            if key in degree_dist.keys():
+                degree_dist[key] += 1
+            else:
+                degree_dist[key] = 1
+
+        fig = plt.figure()
+        plt.bar(degree_dist.keys(), degree_dist.values())
+        plt.ylabel('Distribution (# Occurrences)')
+        plt.xlabel('Degree')
+        plt.title('Degree Distribution')
+        plt.show()
+
+        commun_louvain = community.best_partition(g)
+        nodes = list(g.nodes())
+        edges = list(g.edges())
+        communities = set(dict(commun_louvain).values())
+        number_of_communities = len(communities)
+        communities_nodes = {}
+
+        # create dictionaries with community IDs as keys
+        # and members nodes as values
+        for node in nodes:
+            if commun_louvain[node] in communities_nodes.keys():
+                communities_nodes[commun_louvain[node]].append(node)
+            else:
+                communities_nodes[commun_louvain[node]] = [node]
+
+        connection_density = np.zeros(shape=(number_of_communities, number_of_communities))
+        for i in communities_nodes.keys():
+            for j in communities_nodes.keys():
+                if i != j:
+                    edges = list(nx.edge_boundary(g, communities_nodes[i], communities_nodes[j]))
+                    connection_density[i, j] = len(edges)
+                else:
+                    edges = list(nx.edge_boundary(g, communities_nodes[i], communities_nodes[i]))
+                    connection_density[i, j] = len(edges)
+
+        for i in communities_nodes.keys():
+            for j in communities_nodes.keys():
+                if i != j:
+                    denom = len(communities_nodes[i]) * len(communities_nodes[j])
+                else:
+                    denom = (len(communities_nodes[i]) * (len(communities_nodes[i]) - 1)) / 2
+                connection_density[i, j] /= denom
+
+        fig = plt.figure()
+        plt.imshow(connection_density, cmap='bwr', interpolation='nearest')
+        plt.title("Community Connection Density Heatmap")
+        plt.xlabel('Community ID')
+        plt.ylabel('Community ID')
+        plt.xticks(range(number_of_communities))
+        plt.yticks(range(number_of_communities))
         plt.show()
 
 
@@ -261,32 +340,47 @@ def run():
     data_pro = DataProvider()
     graph_pro = GraphProvider()
     plot_pro = PlotProvider()
-    start_date = date(2019, 1, 1)
-    end_date = date(2021, 8, 30)
-    dates = data_pro.get_dates(start_date, end_date, 10)
+    start_date = date(2019, 9, 1)
+    end_date = date(2020, 9, 1)
+    increment = 1
+    window = 15
+    dates = data_pro.get_dates(start_date, end_date, increment)
     cryptos = data_pro.get_data(start_date, end_date)
-    interes_list = {'Bitcoin': 'b', 'Ethereum': 'r', 'XPR': 'g', 'Cardano': 'orange'}
+    interes_list = {'bitcoin': 'b', 'ethereum': 'r', 'dogecoin': 'g', 'cardano': 'orange'}
 
-    graphs = graph_pro.calc_graphs(dates, cryptos, data_pro, graph_pro)
+    graphs = graph_pro.calc_graphs(dates, cryptos, data_pro, graph_pro, window)
 
     degree_centrality = []
+    degree_centrality_market = []
     for g in graphs:
-        degree_centrality.append(nx.degree_centrality(g))
-    degree_centrality_market = [sum(d.values()) / len(d) for d in degree_centrality]
+        degree_dict = nx.degree_centrality(g.get_graph())
+        degree_centrality.append(degree_dict)
+        degree_centrality_market.append(np.mean(list(degree_dict.values())))
+
     plot_pro.plot_metric(interes_list, dates, degree_centrality, degree_centrality_market,
-                         xlable="Date", ylable="Degree Centrality", title="Degree Centrality")
+                         xlable="Date", ylable="Degree Centrality", title="Degree Centrality", window=window)
 
     betweenness_centrality = []
+    betweenness_centrality_market = []
     for g in graphs:
-        betweenness_centrality.append(nx.betweenness_centrality(g))
+        degree_dict = nx.betweenness_centrality(g.get_graph())
+        betweenness_centrality.append(degree_dict)
+        betweenness_centrality_market.append(np.mean(list(degree_dict.values())))
+
     betweenness_centrality_market = [sum(d.values()) / len(d) for d in betweenness_centrality]
     plot_pro.plot_metric(interes_list, dates, betweenness_centrality, betweenness_centrality_market,
-                         xlable="Date", ylable="Betweenness Centrality", title="Betweenness Centrality")
+                         xlable="Date", ylable="Betweenness Centrality", title="Betweenness Centrality", window=window)
 
-    plot_pro.plot_network(nx.degree_centrality, graphs[0], title='Degree centrality')
-    plot_pro.plot_network(nx.betweenness_centrality, graphs[0], title='Betweenness centrality')
-    plot_pro.plot_degree_corr(graphs[0])
-    plot_pro.plot_degree_dst(graphs[0])
-    plot_pro.plot_louvain(graphs[0])
+    nodes_pos = nx.kamada_kawai_layout(graphs[0].get_graph())
+    for i, d in enumerate([start_date, date(2020, 3, 20)]):
+        for j in range(len(graphs)):
+            start, end = graphs[j].get_dates()
+            if start == d:
+                plot_pro.plot_network(nx.degree_centrality, graphs[j].get_graph(), nodes_pos, title='Degree centrality')
+                plot_pro.plot_network(nx.betweenness_centrality, graphs[j].get_graph(), nodes_pos, title='Betweenness centrality')
+                plot_pro.plot_graph_chars(graphs[j].get_graph())
+                plot_pro.plot_degree_corr(graphs[j].get_graph())
+                plot_pro.plot_degree_dst(graphs[j].get_graph())
+                plot_pro.plot_louvain(graphs[j].get_graph(), nodes_pos)
 
 run()
