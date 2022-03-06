@@ -369,7 +369,31 @@ def run():
 
     betweenness_centrality_market = [sum(d.values()) / len(d) for d in betweenness_centrality]
     plot_pro.plot_metric(interes_list, dates, betweenness_centrality, betweenness_centrality_market,
-                         xlable="Date", ylable="Betweenness Centrality", title="Betweenness Centrality", window=window)
+                         xlable="Date", ylable="Betweenness Centrality", title="Betweenness centrality", window=window)
+
+    clustering_coeff = []
+    clustering_coeff_market = []
+    for g in graphs:
+        coeff_dict = nx.clustering(g.get_graph())
+        clustering_coeff.append(coeff_dict)
+        clustering_coeff_market.append(np.mean(list(coeff_dict.values())))
+
+    plot_pro.plot_metric(interes_list, dates, clustering_coeff, clustering_coeff_market,
+                         xlable="Date", ylable="Clustering Coefficient", title="Clustering coefficient", window=window)
+
+    shortest_path = []
+    shortest_path_market = []
+    for g in graphs:
+        largest_cc = max(nx.connected_components(g.get_graph()), key=len)
+        largest_cc_graph = g.get_graph().subgraph(largest_cc)
+        shortest_dict = dict(nx.shortest_path_length(largest_cc_graph))
+        for k in shortest_dict:
+            shortest_dict[k] = np.mean(list(shortest_dict[k].values()))
+        shortest_path.append(shortest_dict)
+        shortest_path_market.append(np.mean(list(shortest_dict.values())))
+
+    plot_pro.plot_metric(interes_list, dates, shortest_path, shortest_path_market,
+                         xlable="Date", ylable="Avg. Shortest Path", title="Avg. shortest path in largest connected component", window=window)
 
     nodes_pos = nx.kamada_kawai_layout(graphs[0].get_graph())
     for i, d in enumerate([start_date, date(2020, 3, 20)]):
@@ -378,9 +402,9 @@ def run():
             if start == d:
                 plot_pro.plot_network(nx.degree_centrality, graphs[j].get_graph(), nodes_pos, title='Degree centrality')
                 plot_pro.plot_network(nx.betweenness_centrality, graphs[j].get_graph(), nodes_pos, title='Betweenness centrality')
-                plot_pro.plot_graph_chars(graphs[j].get_graph())
-                plot_pro.plot_degree_corr(graphs[j].get_graph())
-                plot_pro.plot_degree_dst(graphs[j].get_graph())
+                #plot_pro.plot_graph_chars(graphs[j].get_graph())
+                #plot_pro.plot_degree_corr(graphs[j].get_graph())
+                #plot_pro.plot_degree_dst(graphs[j].get_graph())
                 plot_pro.plot_louvain(graphs[j].get_graph(), nodes_pos)
 
 run()
