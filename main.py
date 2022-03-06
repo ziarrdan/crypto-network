@@ -63,7 +63,7 @@ class DataProvider():
 
 
 class GraphProvider():
-    def calc_edges(self, cryptos, cutoff_corr=0.7):
+    def calc_edges(self, cryptos, cutoff_corr=0.75):
         cryptos_daily_returns = (np.log(cryptos) - np.log(cryptos.shift(1))) / np.std(cryptos)
         cryptos_correlations = cryptos_daily_returns.corr(method='pearson')
         cryptos_correlations = cryptos_correlations.mask(cryptos_correlations < cutoff_corr, 0)
@@ -88,9 +88,9 @@ class GraphProvider():
 
     def calc_graphs(self, dates, cryptos, data_pro, graph_pro, window):
         graphs = []
-        for d in range(len(dates) - window):
-            start_int = dates[d]
-            end_int = dates[d + window]
+        for d in range(window, len(dates)):
+            start_int = dates[d - window]
+            end_int = dates[d]
             cryptos_int = data_pro.get_data_for_dates(cryptos, start_int, end_int)
             edges, nodes = graph_pro.calc_edges(cryptos_int)
             graph = Graph(graph_pro.calc_graph(edges, nodes), start_int, end_int)
@@ -100,13 +100,17 @@ class GraphProvider():
 
 
 class PlotProvider():
-    def plot_metric(self, interes_list, dates, degree_metric, degree_metric_market, xlable, ylable, title, window):
-        fig, ax = plt.subplots(figsize=(8, 4), dpi=300)
+    def plot_metric(self, dates, degree_metric, degree_metric_market, xlable, ylable, title, window, interes_list={}, major_events={}):
+        fig, ax = plt.subplots(figsize=(8, 4), dpi=600)
         for coin, coin_color in interes_list.items():
-            plt.plot(dates[:-window], [d.get(coin) for d in degree_metric], color=coin_color, linewidth=1.0,
+            plt.plot(dates[window:], [d.get(coin) for d in degree_metric], color=coin_color, linewidth=.5,
                      linestyle='--',
                      label=coin)
-        plt.plot(dates[:-window], degree_metric_market, color='k', linewidth=2.0, label='Market')
+        plt.plot(dates[window:], degree_metric_market, color='k', linewidth=1.25, label='Market')
+        for key in major_events.keys():
+            plt.axvline(x=key, color='k', linestyle='--', linewidth=.5)
+        if len(interes_list) == 0:
+            ax.set_xticks(list(major_events.keys()))
         myFmt = mdates.DateFormatter('%b %y')
         ax.xaxis.set_major_formatter(myFmt)
         plt.xticks(rotation=45)
@@ -119,7 +123,7 @@ class PlotProvider():
 
     def plot_network(self, metric_func, graph, plot_network, title):
         degree_metric = metric_func(graph)
-        fig, ax = plt.subplots(figsize=(8, 8), dpi=300)
+        fig, ax = plt.subplots(figsize=(8, 8), dpi=600)
         edges = graph.edges()
         colors = [degree_metric[node] / max(degree_metric.values()) for node in graph.nodes()]
         sizes = [200 * i if i > 0 else 10 for i in colors]
@@ -152,7 +156,7 @@ class PlotProvider():
             avg_neighbor_for_ks[k] = sum_k / len(nodes)
         avg_neighbor_for_ks = dict(sorted(avg_neighbor_for_ks.items()))
 
-        fig3, ax = plt.subplots(figsize=(7, 7))
+        fig3, ax = plt.subplots(figsize=(7, 7), dpi=600)
         ax.scatter(avg_neighbor_for_ks.keys(), avg_neighbor_for_ks.values(), color="b", marker='.')
         plt.axhline(np.average(list(avg_neighbor_for_ks.values())), color="g", linestyle="--")
         plt.setp(ax, ylabel='$k_{nn}(k)$')
@@ -183,7 +187,7 @@ class PlotProvider():
         cnt = np.array(in_cnt) / g.number_of_nodes()
         degree = [d for n, d in g.degree() if d != 0]
 
-        fig1, axs = plt.subplots(ncols=2, nrows=2, figsize=(7, 7))
+        fig1, axs = plt.subplots(ncols=2, nrows=2, figsize=(7, 7), dpi=600)
         axs[0, 0].scatter(deg, in_cnt, color="b", marker='.')
         axs[0, 0].title.set_text("Linear Scale")
         plt.setp(axs[0, 0], ylabel='pk')
@@ -261,7 +265,7 @@ class PlotProvider():
         cmap = cm.get_cmap('tab10', max(commun_louvain.values()) + 1)
         sm = plt.cm.ScalarMappable(cmap=cm1)
         color_values = np.array(list(commun_louvain.values())) / max(commun_louvain.values())
-        fig, ax = plt.subplots(figsize=(8, 8), dpi=300)
+        fig, ax = plt.subplots(figsize=(8, 8), dpi=600)
         nx.draw_networkx_nodes(nx.MultiDiGraph(t), plot_network, commun_louvain.keys(), node_size=200,
                                cmap=plt.get_cmap('jet'), node_color=list(color_values), alpha=0.5)
         nx.draw_networkx_edges(nx.MultiDiGraph(t), plot_network, alpha=0.05, width=0.5, connectionstyle="arc3,rad=0.25", arrowstyle='-')
@@ -275,6 +279,7 @@ class PlotProvider():
         fig.colorbar(sm, ax=None, orientation='vertical', shrink=0.75)
         plt.tight_layout()
         plt.show()
+        print('Number of clusters is: ', len(set(labels)))
 
 
     def plot_graph_chars(self, g):
@@ -340,14 +345,23 @@ def run():
     data_pro = DataProvider()
     graph_pro = GraphProvider()
     plot_pro = PlotProvider()
-    start_date = date(2019, 9, 1)
-    end_date = date(2020, 9, 1)
+    start_date = date(2019, 1, 1)
+    end_date = date(2021, 12, 1)
     increment = 1
     window = 15
     dates = data_pro.get_dates(start_date, end_date, increment)
     cryptos = data_pro.get_data(start_date, end_date)
-    interes_list = {'bitcoin': 'b', 'ethereum': 'r', 'dogecoin': 'g', 'cardano': 'orange'}
-
+    interes_list = {'bitcoin': 'b', 'ethereum': 'r', 'cardano': 'g', 'xrp': 'orange'}
+    events = {date(2021, 9, 24): 'China cracks down further on Bitcoin by banning mining.',
+              date(2021, 7, 29): 'Germany permits financial institutions to hold up to 20% of their assets in crypto.',
+              date(2021, 5, 12): 'Tesla U-turns on its decision to accept Bitcoin as payment.',
+              date(2021, 2, 8): 'Tesla reveals it has bought $1.5 billion of Bitcoin.',
+              date(2020, 9, 29): 'Jack Dorsey publicly supports Bitcoin.',
+              date(2020, 3, 12): 'COVID-19 affects US markets.'}
+    #date(2018, 5, 5): 'Warren Buffet warns investors to steer clear of Bitcoin'.
+    #date(2018, 5, 2): 'The Chinese government states its intent to ban foreign cryptocurrency exchange platforms in addition to domestic exchanges.'
+    #date(2017, 11, 29): 'John McAfee Tweets a prediction that Bitcoin will reach $1 million by 2020.'
+    #date(2015, 10, 22): 'The EU declares Bitcoin is to be treated as a currency in Europe.'
     graphs = graph_pro.calc_graphs(dates, cryptos, data_pro, graph_pro, window)
 
     degree_centrality = []
@@ -357,8 +371,12 @@ def run():
         degree_centrality.append(degree_dict)
         degree_centrality_market.append(np.mean(list(degree_dict.values())))
 
-    plot_pro.plot_metric(interes_list, dates, degree_centrality, degree_centrality_market,
-                         xlable="Date", ylable="Degree Centrality", title="Degree Centrality", window=window)
+    plot_pro.plot_metric(dates, degree_centrality, degree_centrality_market,
+                         xlable="Date", ylable="Degree centrality", title="Degree centrality", window=window,
+                         interes_list=interes_list, major_events={})
+    plot_pro.plot_metric(dates, degree_centrality, degree_centrality_market,
+                         xlable="Date", ylable="Degree centrality", title="Degree centrality", window=window,
+                         interes_list={}, major_events=events)
 
     betweenness_centrality = []
     betweenness_centrality_market = []
@@ -368,18 +386,22 @@ def run():
         betweenness_centrality_market.append(np.mean(list(degree_dict.values())))
 
     betweenness_centrality_market = [sum(d.values()) / len(d) for d in betweenness_centrality]
-    plot_pro.plot_metric(interes_list, dates, betweenness_centrality, betweenness_centrality_market,
-                         xlable="Date", ylable="Betweenness Centrality", title="Betweenness centrality", window=window)
+    plot_pro.plot_metric(dates, betweenness_centrality, betweenness_centrality_market,
+                         xlable="Date", ylable="Betweenness centrality", title="Betweenness centrality", window=window,
+                         interes_list=interes_list, major_events={})
+    plot_pro.plot_metric(dates, betweenness_centrality, betweenness_centrality_market,
+                         xlable="Date", ylable="Betweenness centrality", title="Betweenness centrality", window=window,
+                         interes_list={}, major_events=events)
 
-    clustering_coeff = []
+    '''clustering_coeff = []
     clustering_coeff_market = []
     for g in graphs:
         coeff_dict = nx.clustering(g.get_graph())
         clustering_coeff.append(coeff_dict)
         clustering_coeff_market.append(np.mean(list(coeff_dict.values())))
 
-    plot_pro.plot_metric(interes_list, dates, clustering_coeff, clustering_coeff_market,
-                         xlable="Date", ylable="Clustering Coefficient", title="Clustering coefficient", window=window)
+    plot_pro.plot_metric(dates, clustering_coeff, clustering_coeff_market,
+                         xlable="Date", ylable="Clustering coefficient", title="Clustering coefficient", window=window, major_events=events)
 
     shortest_path = []
     shortest_path_market = []
@@ -392,16 +414,18 @@ def run():
         shortest_path.append(shortest_dict)
         shortest_path_market.append(np.mean(list(shortest_dict.values())))
 
-    plot_pro.plot_metric(interes_list, dates, shortest_path, shortest_path_market,
-                         xlable="Date", ylable="Avg. Shortest Path", title="Avg. shortest path in largest connected component", window=window)
+    plot_pro.plot_metric(dates, shortest_path, shortest_path_market,
+                         xlable="Date", ylable="Avg. shortest path", title="Avg. shortest path in largest connected component", window=window, major_events=events)'''
 
-    nodes_pos = nx.kamada_kawai_layout(graphs[0].get_graph())
-    for i, d in enumerate([start_date, date(2020, 3, 20)]):
+    nodes_pos = None
+    for i, d in enumerate([date(2021, 4, 1), date(2020, 3, 20)]):
         for j in range(len(graphs)):
             start, end = graphs[j].get_dates()
             if start == d:
-                plot_pro.plot_network(nx.degree_centrality, graphs[j].get_graph(), nodes_pos, title='Degree centrality')
-                plot_pro.plot_network(nx.betweenness_centrality, graphs[j].get_graph(), nodes_pos, title='Betweenness centrality')
+                if nodes_pos == None:
+                    nodes_pos = nx.kamada_kawai_layout(graphs[j].get_graph())
+                plot_pro.plot_network(nx.degree_centrality, graphs[j].get_graph(), nodes_pos, title='Degree centrality from ' + start.strftime('%-d %b %y') + ' to ' + end.strftime('%-d %b %y'))
+                plot_pro.plot_network(nx.betweenness_centrality, graphs[j].get_graph(), nodes_pos, title='Betweenness centrality from ' + start.strftime('%-d %b %y') + ' to ' + end.strftime('%-d %b %y'))
                 #plot_pro.plot_graph_chars(graphs[j].get_graph())
                 #plot_pro.plot_degree_corr(graphs[j].get_graph())
                 #plot_pro.plot_degree_dst(graphs[j].get_graph())
