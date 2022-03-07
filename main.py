@@ -29,15 +29,16 @@ class Graph:
 class DataProvider():
     def get_data(self, start_date='2018-01-01', end_date='2022-01-01'):
         cryptos = pd.DataFrame()
-        for filename in os.listdir("data-master/csv"):
+        for filename in os.listdir("data-master/mine"):
             if 'csv' in filename:
-                crypto = pd.read_csv("data-master/csv" + '/' + filename, encoding='Windows-1252')
+                crypto = pd.read_csv("data-master/mine" + '/' + filename, encoding='Windows-1252')
                 if 'Date' in crypto.columns:
                     crypto['Date'] = pd.to_datetime(crypto['Date']).dt.date
                     crypto = crypto[(crypto['Date'] >= start_date) & (crypto['Date'] <= end_date)].reset_index(drop=True)
-                    if not 'Date' in cryptos.columns:
-                        cryptos['Date'] = crypto['Date']
-                    cryptos[filename.split('.')[0]] = crypto['Open'].reset_index(drop=True)
+                    if len(crypto['Date']) > 0 and crypto['Date'].iloc[0] == start_date:
+                        if not 'Date' in cryptos.columns:
+                            cryptos['Date'] = crypto['Date']
+                        cryptos[filename.split('.')[0]] = crypto['Open'].reset_index(drop=True)
 
             cryptos = cryptos.dropna(axis='columns')
         cryptos = cryptos.set_index('Date', drop=True)
@@ -114,16 +115,12 @@ class PlotProvider():
         return ax
 
 
-    def plot_all_metric(self, dates, degree_centrality_market, betweenness_centrality_market, clustering_coeff_market,
-                        shortest_path_market, xlable, ylable, title, window, cycles):
+    def plot_metric_bull(self, dates, degree_metric, xlable, ylable, title, window, cycles):
         fig, ax = plt.subplots(figsize=(8, 4), dpi=600)
-        plt.plot(dates[window:], np.array(degree_centrality_market) / max(degree_centrality_market), color='red', linewidth=0.5, label='Degree centrality')
-        plt.plot(dates[window:], np.array(betweenness_centrality_market) / max(betweenness_centrality_market), color='navy', linewidth=0.5, label='Betweenness centrality')
-        #plt.plot(dates[window:], np.array(clustering_coeff_market) / max(clustering_coeff_market), linewidth=0.5, color='green', label='Clustering Coeff.', linestyle='--')
-        #plt.plot(dates[window:], np.array(shortest_path_market) / max(shortest_path_market), linewidth=0.5, color='orange', label='Shortest Path Length', linestyle='dotted')
+        plt.plot(dates[window:], np.array(degree_metric) / max(degree_metric), color='k', linewidth=1.25)
         for start, end in cycles:
-            plt.axvline(x=start, color='g', linestyle='--', linewidth=.5)
-            plt.axvline(x=end, color='r', linestyle='--', linewidth=.5)
+            plt.axvline(x=start, color='g', linestyle='--', linewidth=1)
+            plt.axvline(x=end, color='r', linestyle='--', linewidth=1)
         myFmt = mdates.DateFormatter('%b %y')
         ax = self.loseAxes(ax, 1)
         ax.xaxis.set_major_formatter(myFmt)
@@ -143,7 +140,7 @@ class PlotProvider():
                      label=coin)
         plt.plot(dates[window:], degree_metric_market, color='k', linewidth=1.25, label='Market')
         for key in major_events.keys():
-            plt.axvline(x=key, color='k', linestyle='--', linewidth=.5)
+            plt.axvline(x=key, color='k', linestyle='--', linewidth=1)
         if len(interes_list) == 0:
             ax.set_xticks(list(major_events.keys()))
         myFmt = mdates.DateFormatter('%b %y')
@@ -164,7 +161,7 @@ class PlotProvider():
         edges = graph.edges()
         colors = [degree_metric[node] / max(degree_metric.values()) for node in graph.nodes()]
         if show_labels:
-            sizes = [350 for _ in colors]
+            sizes = [500 for _ in colors]
         else:
             sizes = [200 * i if i > 0 else 10 for i in colors]
         cm1 = mcol.LinearSegmentedColormap.from_list("MyCmapName", ["navy", "green", "yellow", "red"])
@@ -393,13 +390,13 @@ def run():
     data_pro = DataProvider()
     graph_pro = GraphProvider()
     plot_pro = PlotProvider()
-    start_date = date(2019, 1, 1)
-    end_date = date(2021, 12, 1)
+    start_date = date(2020, 1, 1)
+    end_date = date(2021, 12, 31)
     increment = 1
     window = 15
     dates = data_pro.get_dates(start_date, end_date, increment)
     cryptos = data_pro.get_data(start_date, end_date)
-    interes_list = {'bitcoin': 'b', 'ethereum': 'r', 'cardano': 'g', 'xrp': 'orange'}
+    interes_list = {'btc': 'b', 'eth': 'r', 'ada': 'g', 'xrp': 'orange'}
     events = {date(2021, 9, 24): 'China cracks down further on Bitcoin by banning mining.',
               date(2021, 7, 29): 'Germany permits financial institutions to hold up to 20% of their assets in crypto.',
               date(2021, 5, 12): 'Tesla U-turns on its decision to accept Bitcoin as payment.',
@@ -475,9 +472,11 @@ def run():
     plot_pro.plot_metric(dates, shortest_path, shortest_path_market,
                          xlable="Date", ylable="Avg. shortest path", title="Avg. shortest path in largest connected component", window=window, major_events=events)
 
-    plot_pro.plot_all_metric(dates, degree_centrality_market, betweenness_centrality_market, clustering_coeff_market
-                             , shortest_path_market, xlable="Date", ylable="Normalized metric",
-                             title="Network dynamic characteristics and market cycles", window=window, cycles=bull_runs)
+    plot_pro.plot_metric_bull(dates, degree_centrality_market, xlable="Date", ylable="Degree centrality",
+                             title="Degree centrality and market cycles", window=window, cycles=bull_runs)
+    plot_pro.plot_metric_bull(dates, betweenness_centrality_market, xlable="Date", ylable="Betweenness centrality",
+                              title="Betweenness centrality and market cycles", window=window,
+                              cycles=bull_runs)
 
     nodes_pos = nx.kamada_kawai_layout(graphs[-1].get_graph())
     plot_pro.plot_network(nx.degree_centrality, graphs[-1].get_graph(), nodes_pos,
