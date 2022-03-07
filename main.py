@@ -100,6 +100,41 @@ class GraphProvider():
 
 
 class PlotProvider():
+    def loseAxes(self, ax, group=1):
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+
+        if group == 2:
+            ax.spines['bottom'].set_visible(False)
+            ax.spines['left'].set_visible(False)
+        else:
+            ax.get_xaxis().tick_bottom()
+            ax.get_yaxis().tick_left()
+
+        return ax
+
+
+    def plot_all_metric(self, dates, degree_centrality_market, betweenness_centrality_market, clustering_coeff_market,
+                        shortest_path_market, xlable, ylable, title, window, cycles):
+        fig, ax = plt.subplots(figsize=(8, 4), dpi=600)
+        plt.plot(dates[window:], np.array(degree_centrality_market) / max(degree_centrality_market), color='red', linewidth=0.5, label='Degree centrality')
+        plt.plot(dates[window:], np.array(betweenness_centrality_market) / max(betweenness_centrality_market), color='navy', linewidth=0.5, label='Betweenness centrality')
+        #plt.plot(dates[window:], np.array(clustering_coeff_market) / max(clustering_coeff_market), linewidth=0.5, color='green', label='Clustering Coeff.', linestyle='--')
+        #plt.plot(dates[window:], np.array(shortest_path_market) / max(shortest_path_market), linewidth=0.5, color='orange', label='Shortest Path Length', linestyle='dotted')
+        for start, end in cycles:
+            plt.axvline(x=start, color='g', linestyle='--', linewidth=.5)
+            plt.axvline(x=end, color='r', linestyle='--', linewidth=.5)
+        myFmt = mdates.DateFormatter('%b %y')
+        ax = self.loseAxes(ax, 1)
+        ax.xaxis.set_major_formatter(myFmt)
+        plt.xticks(rotation=45)
+        plt.legend()
+        plt.xlabel(xlable)
+        plt.ylabel(ylable)
+        plt.title(title, fontsize=12, y=1.03)
+        plt.tight_layout()
+        plt.show()
+
     def plot_metric(self, dates, degree_metric, degree_metric_market, xlable, ylable, title, window, interes_list={}, major_events={}):
         fig, ax = plt.subplots(figsize=(8, 4), dpi=600)
         for coin, coin_color in interes_list.items():
@@ -112,6 +147,7 @@ class PlotProvider():
         if len(interes_list) == 0:
             ax.set_xticks(list(major_events.keys()))
         myFmt = mdates.DateFormatter('%b %y')
+        ax = self.loseAxes(ax, 1)
         ax.xaxis.set_major_formatter(myFmt)
         plt.xticks(rotation=45)
         plt.legend(ncol=len(interes_list) + 1)
@@ -121,16 +157,25 @@ class PlotProvider():
         plt.tight_layout()
         plt.show()
 
-    def plot_network(self, metric_func, graph, plot_network, title):
+    def plot_network(self, metric_func, graph, plot_network, title, show_labels=False):
         degree_metric = metric_func(graph)
-        fig, ax = plt.subplots(figsize=(8, 8), dpi=600)
+        fig, ax = plt.subplots(figsize=(8, 7), dpi=600)
+        ax = self.loseAxes(ax, 2)
         edges = graph.edges()
         colors = [degree_metric[node] / max(degree_metric.values()) for node in graph.nodes()]
-        sizes = [200 * i if i > 0 else 10 for i in colors]
+        if show_labels:
+            sizes = [350 for _ in colors]
+        else:
+            sizes = [200 * i if i > 0 else 10 for i in colors]
         cm1 = mcol.LinearSegmentedColormap.from_list("MyCmapName", ["navy", "green", "yellow", "red"])
         sm = plt.cm.ScalarMappable(cmap=cm1)
         nx.draw_networkx_nodes(nx.MultiDiGraph(graph), pos=plot_network, node_color=cm1(colors), node_size=sizes)
         nx.draw_networkx_edges(nx.MultiDiGraph(graph), pos=plot_network, edgelist=edges, edge_color='k', width=0.5, connectionstyle="arc3,rad=0.25", arrowstyle='-', alpha=0.25)
+        if show_labels:
+            labels = {}
+            for node in graph.nodes():
+                labels[node] = node
+            nx.draw_networkx_labels(graph, plot_network, labels, font_size=8, font_color='white')
         plt.title(title, fontsize=18, y=1.03)
         fig.colorbar(sm, ax=None, orientation='vertical', shrink=0.75)
         plt.tight_layout()
@@ -257,20 +302,23 @@ class PlotProvider():
         plt.show()
 
 
-    def plot_louvain(self, g, plot_network, with_labels=True):
+    def plot_louvain(self, g, plot_network, show_labels=True):
         t = g
         commun_louvain = community_louvain.best_partition(t)
+        communities = set(dict(commun_louvain).values())
+        number_of_communities = len(communities)
         pos = nx.kamada_kawai_layout(t)
         cm1 = mcol.LinearSegmentedColormap.from_list("MyCmapName", ["navy", "green", "yellow", "red"])
         cmap = cm.get_cmap('tab10', max(commun_louvain.values()) + 1)
         sm = plt.cm.ScalarMappable(cmap=cm1)
         color_values = np.array(list(commun_louvain.values())) / max(commun_louvain.values())
         fig, ax = plt.subplots(figsize=(8, 8), dpi=600)
+        ax = self.loseAxes(ax, 2)
         nx.draw_networkx_nodes(nx.MultiDiGraph(t), plot_network, commun_louvain.keys(), node_size=200,
                                cmap=plt.get_cmap('jet'), node_color=list(color_values), alpha=0.5)
         nx.draw_networkx_edges(nx.MultiDiGraph(t), plot_network, alpha=0.05, width=0.5, connectionstyle="arc3,rad=0.25", arrowstyle='-')
         label_options = {"ec": "k", "fc": "white", "alpha": 0.25}
-        if with_labels:
+        if show_labels:
             labels = {}
             for node in t.nodes():
                 labels[node] = node
@@ -279,7 +327,7 @@ class PlotProvider():
         fig.colorbar(sm, ax=None, orientation='vertical', shrink=0.75)
         plt.tight_layout()
         plt.show()
-        print('Number of clusters is: ', len(set(labels)))
+        print('Number of clusters is: ', number_of_communities)
 
 
     def plot_graph_chars(self, g):
@@ -358,6 +406,16 @@ def run():
               date(2021, 2, 8): 'Tesla reveals it has bought $1.5 billion of Bitcoin.',
               date(2020, 9, 29): 'Jack Dorsey publicly supports Bitcoin.',
               date(2020, 3, 12): 'COVID-19 affects US markets.'}
+    bull_runs = [[date(2019, 12, 18), date(2020, 2, 13)],
+                 [date(2020, 3, 17), date(2021, 4, 14)],
+                 [date(2021, 7, 21), date(2021, 11, 9)]]
+    #[date(2015, 1, 14), date(2017, 6, 11)],
+    #[date(2017, 7, 16), date(2017, 9, 1)],
+    #[date(2017, 9, 14), date(2017, 12, 16)],
+    #[date(2018, 2, 6), date(2018, 3, 6)],
+    #[date(2018, 4, 7), date(2018, 5, 6)],
+    #[date(2018, 6, 29), date(2018, 7, 25)],
+    #[date(2018, 12, 15), date(2019, 6, 27)
     #date(2018, 5, 5): 'Warren Buffet warns investors to steer clear of Bitcoin'.
     #date(2018, 5, 2): 'The Chinese government states its intent to ban foreign cryptocurrency exchange platforms in addition to domestic exchanges.'
     #date(2017, 11, 29): 'John McAfee Tweets a prediction that Bitcoin will reach $1 million by 2020.'
@@ -393,7 +451,7 @@ def run():
                          xlable="Date", ylable="Betweenness centrality", title="Betweenness centrality", window=window,
                          interes_list={}, major_events=events)
 
-    '''clustering_coeff = []
+    clustering_coeff = []
     clustering_coeff_market = []
     for g in graphs:
         coeff_dict = nx.clustering(g.get_graph())
@@ -415,9 +473,15 @@ def run():
         shortest_path_market.append(np.mean(list(shortest_dict.values())))
 
     plot_pro.plot_metric(dates, shortest_path, shortest_path_market,
-                         xlable="Date", ylable="Avg. shortest path", title="Avg. shortest path in largest connected component", window=window, major_events=events)'''
+                         xlable="Date", ylable="Avg. shortest path", title="Avg. shortest path in largest connected component", window=window, major_events=events)
 
-    nodes_pos = None
+    plot_pro.plot_all_metric(dates, degree_centrality_market, betweenness_centrality_market, clustering_coeff_market
+                             , shortest_path_market, xlable="Date", ylable="Normalized metric",
+                             title="Network dynamic characteristics and market cycles", window=window, cycles=bull_runs)
+
+    nodes_pos = nx.kamada_kawai_layout(graphs[-1].get_graph())
+    plot_pro.plot_network(nx.degree_centrality, graphs[-1].get_graph(), nodes_pos,
+                          title='Cryptocurrencies network in last 15 days of 2021', show_labels=True)
     for i, d in enumerate([date(2021, 4, 1), date(2020, 3, 20)]):
         for j in range(len(graphs)):
             start, end = graphs[j].get_dates()
