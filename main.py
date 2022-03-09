@@ -130,6 +130,7 @@ class PlotProvider():
         plt.ylabel(ylable)
         plt.title(title, fontsize=12, y=1.03)
         plt.tight_layout()
+        plt.savefig('pics/' + title + '.png')
         plt.show()
 
     def plot_metric(self, dates, degree_metric, degree_metric_market, xlable, ylable, title, window, interes_list={}, major_events={}):
@@ -152,7 +153,9 @@ class PlotProvider():
         plt.ylabel(ylable)
         plt.title(title, fontsize=12, y=1.03)
         plt.tight_layout()
+        plt.savefig('pics/' + title + '.png')
         plt.show()
+
 
     def plot_network(self, metric_func, graph, plot_network, title, show_labels=False):
         degree_metric = metric_func(graph)
@@ -176,7 +179,9 @@ class PlotProvider():
         plt.title(title, fontsize=18, y=1.03)
         fig.colorbar(sm, ax=None, orientation='vertical', shrink=0.75)
         plt.tight_layout()
+        plt.savefig('pics/' + title + '.png')
         plt.show()
+
 
     def plot_degree_corr(self, g):
         avg_neighbor = nx.average_neighbor_degree(g)
@@ -299,7 +304,7 @@ class PlotProvider():
         plt.show()
 
 
-    def plot_louvain(self, g, plot_network, show_labels=True):
+    def plot_louvain(self, g, plot_network, title, show_labels=True):
         t = g
         commun_louvain = community_louvain.best_partition(t)
         communities = set(dict(commun_louvain).values())
@@ -320,9 +325,10 @@ class PlotProvider():
             for node in t.nodes():
                 labels[node] = node
             nx.draw_networkx_labels(t, pos, labels, font_size=9, font_color='k')
-        plt.title("Community Detection on using Louvain method")
+        plt.title(title)
         fig.colorbar(sm, ax=None, orientation='vertical', shrink=0.75)
         plt.tight_layout()
+        plt.savefig('pics/' + title + '.png')
         plt.show()
         print('Number of clusters is: ', number_of_communities)
 
@@ -492,6 +498,6 @@ def run():
                 #plot_pro.plot_graph_chars(graphs[j].get_graph())
                 #plot_pro.plot_degree_corr(graphs[j].get_graph())
                 #plot_pro.plot_degree_dst(graphs[j].get_graph())
-                plot_pro.plot_louvain(graphs[j].get_graph(), nodes_pos)
+                plot_pro.plot_louvain(graphs[j].get_graph(), nodes_pos, "Community Detection using Louvain method")
 
 run()
