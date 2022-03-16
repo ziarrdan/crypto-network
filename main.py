@@ -64,10 +64,11 @@ class DataProvider():
 
 
 class GraphProvider():
-    def calc_edges(self, cryptos, cutoff_corr=0.75):
+    def calc_edges(self, cryptos, cutoff_corr=0.5):
         cryptos_daily_returns = (np.log(cryptos) - np.log(cryptos.shift(1))) / np.std(cryptos)
         cryptos_correlations = cryptos_daily_returns.corr(method='pearson')
-        cryptos_correlations = cryptos_correlations.mask(cryptos_correlations < cutoff_corr, 0)
+        cryptos_correlations = cryptos_correlations.mask(abs(cryptos_correlations) < cutoff_corr, 0)
+        cryptos_correlations = cryptos_correlations.abs()
         nodes = set(cryptos_correlations.columns)
         edges = []
         for i, u in enumerate(cryptos_correlations):
@@ -125,7 +126,6 @@ class PlotProvider():
         ax = self.loseAxes(ax, 1)
         ax.xaxis.set_major_formatter(myFmt)
         plt.xticks(rotation=45)
-        plt.legend()
         plt.xlabel(xlable)
         plt.ylabel(ylable)
         plt.title(title, fontsize=12, y=1.03)
@@ -392,6 +392,47 @@ class PlotProvider():
         plt.show()
 
 
+    def plot_graph_groups_heatmap(self, g, groups_dict, title):
+        nodes = list(g.nodes())
+        edges = list(g.edges())
+        communities = set(groups_dict.keys())
+        number_of_communities = len(communities)
+        communities_nodes = groups_dict.copy()
+        groups_to_ints = {'Privacy coins': 0, 'PoW': 1, 'PoS': 2, 'NFT': 3, 'DEX': 4,
+                         'DeFi': 5, 'ETH-based': 6, 'BTC-based': 7}
+
+        cm1 = mcol.LinearSegmentedColormap.from_list("MyCmapName", ["navy", "green", "yellow", "red"])
+        sm = plt.cm.ScalarMappable(cmap=cm1)
+
+        connection_density = np.zeros(shape=(number_of_communities, number_of_communities))
+        for i in communities_nodes.keys():
+            for j in communities_nodes.keys():
+                if i != j:
+                    edges = list(nx.edge_boundary(g, communities_nodes[i], communities_nodes[j]))
+                    connection_density[groups_to_ints[i], groups_to_ints[j]] = len(edges)
+                else:
+                    edges = list(nx.edge_boundary(g, communities_nodes[i], communities_nodes[i]))
+                    connection_density[groups_to_ints[i], groups_to_ints[j]] = len(edges)
+
+        for i in communities_nodes.keys():
+            for j in communities_nodes.keys():
+                if i != j:
+                    denom = len(communities_nodes[i]) * len(communities_nodes[j])
+                else:
+                    denom = (len(communities_nodes[i]) * (len(communities_nodes[i]) - 1)) / 2
+                connection_density[groups_to_ints[i], groups_to_ints[j]] /= denom
+
+        fig, ax = plt.subplots(figsize=(7, 7), dpi=600)
+        plt.imshow(connection_density, cmap=cm1, interpolation='nearest')
+        plt.title(title)
+        fig.colorbar(sm, ax=None, orientation='vertical', shrink=0.75)
+        ax.set_xticks(range(number_of_communities))
+        ax.set_yticks(range(number_of_communities))
+        ax.set_xticklabels(list(groups_dict.keys()), rotation=45)
+        ax.set_yticklabels(list(groups_dict.keys()), rotation=45)
+        plt.savefig('pics/' + title + '.png')
+        plt.show()
+
 def run():
     data_pro = DataProvider()
     graph_pro = GraphProvider()
@@ -412,6 +453,17 @@ def run():
     bull_runs = [[date(2019, 12, 18), date(2020, 2, 13)],
                  [date(2020, 3, 17), date(2021, 4, 14)],
                  [date(2021, 7, 21), date(2021, 11, 9)]]
+    crypto_groups = {'Privacy coins': ['xmr', 'zec'],
+                     'PoW': ['bch', 'bsv', 'btc', 'dash', 'doge', 'etc', 'eth', 'ltc', 'miota', 'wbtc', 'xmr', 'zec'],
+                     'PoS': ['ada', 'algo', 'atom', 'eos', 'eth', 'ht', 'nexo', 'waves', 'xtz'],
+                     'NFT': ['chz', 'enj', 'mana', 'omi', 'theta', 'xtz'],
+                     'DEX': ['lrc', 'rune', 'xlm'],
+                     'DeFi': ['bat', 'cel', 'cusdc', 'dai', 'ftm', 'hbar', 'ht', 'link', 'lrc', 'luna', 'matic', 'mkr',
+                              'rune', 'stx', 'wbtc'],
+                     'ETH-based': ['bat', 'cdai', 'cel', 'cusdc', 'dai', 'etc', 'eth', 'kcs', 'link', 'lrc', 'nexo',
+                                   'okb', 'one', 'qnt', 'tusd', 'usdc', 'usdp', 'wbtc', 'xtz'],
+                     'BTC-based': ['bch', 'bsv', 'btc', 'doge', 'stx']}
+    #'Stable coins': ['busd', 'dai', 'tusd', 'usdc', 'usdp', 'usdt', 'cdai'],
     #[date(2015, 1, 14), date(2017, 6, 11)],
     #[date(2017, 7, 16), date(2017, 9, 1)],
     #[date(2017, 9, 14), date(2017, 12, 16)],
@@ -498,6 +550,7 @@ def run():
                 #plot_pro.plot_graph_chars(graphs[j].get_graph())
                 #plot_pro.plot_degree_corr(graphs[j].get_graph())
                 #plot_pro.plot_degree_dst(graphs[j].get_graph())
+                plot_pro.plot_graph_groups_heatmap(graphs[j].get_graph(), crypto_groups, 'Groups connections density heatmap from ' + start.strftime('%-d %b %y') + ' to ' + end.strftime('%-d %b %y'))
                 plot_pro.plot_louvain(graphs[j].get_graph(), nodes_pos, "Community Detection using Louvain method")
 
 run()
