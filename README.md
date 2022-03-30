@@ -18,3 +18,10 @@ scipy | 1.7.3
 
 ## How to Run
 To run the code, simply run the main.py file under the main directory. The figures are generated under its corresponding  "pics" folder. Before running the main.py script for the first time, downloader.py could be used for getting cryptocurrencies price .csv files.
+
+## Results
+Sample Outputs:
+
+|||
+--------------|------------
+|![Cryptocurrencies network topology](https://github.com/ziarrdan/crypto-network/blob/main/pics/Cryptocurrencies%20network%20topology%20from%201%20Apr%2021%20to%2016%20Apr%2021.png?raw=true) |
