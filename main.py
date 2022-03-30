@@ -29,9 +29,9 @@ class Graph:
 class DataProvider():
     def get_data(self, start_date='2018-01-01', end_date='2022-01-01'):
         cryptos = pd.DataFrame()
-        for filename in os.listdir("data-master/mine"):
+        for filename in os.listdir("data-master/csv"):
             if 'csv' in filename:
-                crypto = pd.read_csv("data-master/mine" + '/' + filename, encoding='Windows-1252')
+                crypto = pd.read_csv("data-master/csv" + '/' + filename, encoding='Windows-1252')
                 if 'Date' in crypto.columns:
                     crypto['Date'] = pd.to_datetime(crypto['Date']).dt.date
                     crypto = crypto[(crypto['Date'] >= start_date) & (crypto['Date'] <= end_date)].reset_index(drop=True)
@@ -402,7 +402,7 @@ class PlotProvider():
         communities = set(groups_dict.keys())
         number_of_communities = len(communities)
         communities_nodes = groups_dict.copy()
-        groups_to_ints = {'Privacy coins': 0, 'PoW': 1, 'PoS': 2, 'NFT': 3, 'DEX': 4,
+        groups_to_ints = {'Privacy': 0, 'PoW': 1, 'PoS': 2, 'NFT': 3, 'DEX': 4,
                          'DeFi': 5}
 
         cm1 = mcol.LinearSegmentedColormap.from_list("MyCmapName", ["navy", "green", "yellow", "red"])
@@ -458,7 +458,7 @@ def run():
     bull_runs = [[date(2019, 12, 18), date(2020, 2, 13)],
                  [date(2020, 3, 17), date(2021, 4, 14)],
                  [date(2021, 7, 21), date(2021, 11, 9)]]
-    crypto_groups = {'Privacy coins': ['xmr', 'zec'],
+    crypto_groups = {'Privacy': ['xmr', 'zec'],
                      'PoW': ['bch', 'bsv', 'btc', 'dash', 'doge', 'etc', 'eth', 'ltc', 'miota', 'wbtc', 'xmr', 'zec'],
                      'PoS': ['ada', 'algo', 'atom', 'eos', 'eth', 'ht', 'nexo', 'waves', 'xtz'],
                      'NFT': ['chz', 'enj', 'mana', 'omi', 'theta', 'xtz'],
@@ -541,15 +541,16 @@ def run():
                               title="Betweenness centrality and market cycles", window=window,
                               cycles=bull_runs)
 
-    nodes_pos = nx.kamada_kawai_layout(graphs[-1].get_graph())
-    plot_pro.plot_network(nx.degree_centrality, graphs[-1].get_graph(), nodes_pos,
-                          title='Cryptocurrencies network in last 15 days of 2021', show_labels=True)
+    nodes_pos = None
+
     for i, d in enumerate([date(2021, 4, 1), date(2020, 3, 20)]):
         for j in range(len(graphs)):
             start, end = graphs[j].get_dates()
             if start == d:
                 if nodes_pos == None:
                     nodes_pos = nx.kamada_kawai_layout(graphs[j].get_graph())
+                    plot_pro.plot_network(nx.degree_centrality, graphs[j].get_graph(), nodes_pos,
+                                          title='Cryptocurrencies network topology\nfrom ' + start.strftime('%-d %b %y') + ' to ' + end.strftime('%-d %b %y'), show_labels=True)
                 plot_pro.plot_network(nx.degree_centrality, graphs[j].get_graph(), nodes_pos, title='Degree centrality from ' + start.strftime('%-d %b %y') + ' to ' + end.strftime('%-d %b %y'))
                 plot_pro.plot_network(nx.betweenness_centrality, graphs[j].get_graph(), nodes_pos, title='Betweenness centrality from ' + start.strftime('%-d %b %y') + ' to ' + end.strftime('%-d %b %y'))
                 #plot_pro.plot_graph_chars(graphs[j].get_graph())
