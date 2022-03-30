@@ -118,20 +118,22 @@ class PlotProvider():
 
     def plot_metric_bull(self, dates, degree_metric, xlable, ylable, title, window, cycles):
         fig, ax = plt.subplots(figsize=(8, 4), dpi=600)
-        plt.plot(dates[window:], np.array(degree_metric) / max(degree_metric), color='k', linewidth=1.25)
+        plt.plot(dates[window:], np.array(degree_metric), color='k', linewidth=1.25)
         for start, end in cycles:
             plt.axvline(x=start, color='g', linestyle='--', linewidth=1)
             plt.axvline(x=end, color='r', linestyle='--', linewidth=1)
         myFmt = mdates.DateFormatter('%b %y')
         ax = self.loseAxes(ax, 1)
         ax.xaxis.set_major_formatter(myFmt)
-        plt.xticks(rotation=45)
-        plt.xlabel(xlable)
-        plt.ylabel(ylable)
-        plt.title(title, fontsize=12, y=1.03)
+        plt.yticks(fontsize=14)
+        plt.xticks(rotation=25, fontsize=14)
+        plt.xlabel(xlable, fontsize=14)
+        plt.ylabel(ylable, fontsize=14)
+        plt.title(title, fontsize=14, y=1.03)
         plt.tight_layout()
         plt.savefig('pics/' + title + '.png')
         plt.show()
+        plt.close()
 
     def plot_metric(self, dates, degree_metric, degree_metric_market, xlable, ylable, title, window, interes_list={}, major_events={}):
         fig, ax = plt.subplots(figsize=(8, 4), dpi=600)
@@ -147,14 +149,16 @@ class PlotProvider():
         myFmt = mdates.DateFormatter('%b %y')
         ax = self.loseAxes(ax, 1)
         ax.xaxis.set_major_formatter(myFmt)
-        plt.xticks(rotation=45)
+        plt.yticks(fontsize=14)
+        plt.xticks(rotation=25, fontsize=14)
         plt.legend(ncol=len(interes_list) + 1)
-        plt.xlabel(xlable)
-        plt.ylabel(ylable)
-        plt.title(title, fontsize=12, y=1.03)
+        plt.xlabel(xlable, fontsize=14)
+        plt.ylabel(ylable, fontsize=14)
+        plt.title(title, fontsize=14, y=1.03)
         plt.tight_layout()
         plt.savefig('pics/' + title + '.png')
         plt.show()
+        plt.close()
 
 
     def plot_network(self, metric_func, graph, plot_network, title, show_labels=False):
@@ -399,7 +403,7 @@ class PlotProvider():
         number_of_communities = len(communities)
         communities_nodes = groups_dict.copy()
         groups_to_ints = {'Privacy coins': 0, 'PoW': 1, 'PoS': 2, 'NFT': 3, 'DEX': 4,
-                         'DeFi': 5, 'ETH-based': 6, 'BTC-based': 7}
+                         'DeFi': 5}
 
         cm1 = mcol.LinearSegmentedColormap.from_list("MyCmapName", ["navy", "green", "yellow", "red"])
         sm = plt.cm.ScalarMappable(cmap=cm1)
@@ -424,12 +428,13 @@ class PlotProvider():
 
         fig, ax = plt.subplots(figsize=(7, 7), dpi=600)
         plt.imshow(connection_density, cmap=cm1, interpolation='nearest')
-        plt.title(title)
-        fig.colorbar(sm, ax=None, orientation='vertical', shrink=0.75)
-        ax.set_xticks(range(number_of_communities))
-        ax.set_yticks(range(number_of_communities))
-        ax.set_xticklabels(list(groups_dict.keys()), rotation=45)
-        ax.set_yticklabels(list(groups_dict.keys()), rotation=45)
+        plt.title(title, fontsize=14)
+        fig.colorbar(sm, ax=None, orientation='vertical', shrink=0.70)
+        ax.set_xticks(range(number_of_communities), fontsize=14)
+        ax.set_yticks(range(number_of_communities), fontsize=14)
+        ax.set_xticklabels(list(groups_dict.keys()), rotation=45, fontsize=14)
+        ax.set_yticklabels(list(groups_dict.keys()), rotation=45, fontsize=14)
+        plt.tight_layout()
         plt.savefig('pics/' + title + '.png')
         plt.show()
 
@@ -459,10 +464,10 @@ def run():
                      'NFT': ['chz', 'enj', 'mana', 'omi', 'theta', 'xtz'],
                      'DEX': ['lrc', 'rune', 'xlm'],
                      'DeFi': ['bat', 'cel', 'cusdc', 'dai', 'ftm', 'hbar', 'ht', 'link', 'lrc', 'luna', 'matic', 'mkr',
-                              'rune', 'stx', 'wbtc'],
-                     'ETH-based': ['bat', 'cdai', 'cel', 'cusdc', 'dai', 'etc', 'eth', 'kcs', 'link', 'lrc', 'nexo',
-                                   'okb', 'one', 'qnt', 'tusd', 'usdc', 'usdp', 'wbtc', 'xtz'],
-                     'BTC-based': ['bch', 'bsv', 'btc', 'doge', 'stx']}
+                              'rune', 'stx', 'wbtc']}
+    #'ETH-based': ['bat', 'cdai', 'cel', 'cusdc', 'dai', 'etc', 'eth', 'kcs', 'link', 'lrc', 'nexo',
+    #'okb', 'one', 'qnt', 'tusd', 'usdc', 'usdp', 'wbtc', 'xtz'],
+    #'BTC-based': ['bch', 'bsv', 'btc', 'doge', 'stx']}
     #'Stable coins': ['busd', 'dai', 'tusd', 'usdc', 'usdp', 'usdt', 'cdai'],
     #[date(2015, 1, 14), date(2017, 6, 11)],
     #[date(2017, 7, 16), date(2017, 9, 1)],
