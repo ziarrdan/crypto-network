@@ -1,5 +1,5 @@
 # crypto-network
-In this project we create a network for long-lived cryptocurrencies from January 2020 to March 2022. Then we use well-known network science metrics and tools to study the evolution of this network and the effects of external events on it. Additionally, we study the effects of bull-bear market cycles on the network and also investigate the evolution of the cross-correlations between different groups of cryptocurrencies.  
+In this project we create a network for long-lived cryptocurrencies from January 2020 to January 2024. Then we use well-known network science metrics and tools to study the evolution of this network and the effects of external events on it. Additionally, we study the effects of bull-bear market cycles on the network and also investigate the evolution of the cross-correlations between different groups of cryptocurrencies.  
 
 ## Required IDE and Libraries
 The code in this repository was written and tested in PyCharm 2020.3 using the following libraries (the dependencies of each library is not mentioned).
