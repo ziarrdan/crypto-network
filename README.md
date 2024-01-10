@@ -24,4 +24,4 @@ Sample Outputs:
 
 |||
 --------------|------------
-|![Cryptocurrencies network topology](https://github.com/ziarrdan/crypto-network/blob/main/pics/Cryptocurrencies%20network%20topology%20from%201%20Apr%2021%20to%2016%20Apr%2021.png?raw=true) |
+|![Cryptocurrencies network topology](https://github.com/ziarrdan/crypto-network/blob/main/pics/composite0.png?raw=true) |
